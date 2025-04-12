@@ -1,0 +1,3 @@
+[submodule "testbot_sim"]
+	path = testbot_sim
+	url = git@github.com:VIIT-Robotics-Club/testbot_sim.git
