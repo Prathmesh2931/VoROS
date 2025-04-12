@@ -52,32 +52,31 @@ class Texttomove(Node):
 
 
 
-
- 
-    
-
-
     def move_bot(self):
         if not self.movement:
             return
         
         phrase=self.word
         self.min_dist_left=0.5
+        self.sleep_sec=3.0
         msg=Twist()
         if phrase=='left':
             
             print('left called ')
             if self.deg_60>=self.min_dist_left and self.deg_120>=self.min_dist_left:
                 
-                msg.angular.z=-0.5
+                msg.angular.z=0.5
                 msg.linear.x=0.0
-                
-                self.movement=True
+                self.pub_vel.publish(msg) 
+                self.get_clock().sleep_for(rclpy.duration.Duration(seconds=self.sleep_sec))
+
+                msg.angular.z=0.0
+                self.pub_vel.publish(msg) 
             else:
                 msg.angular.z=0.0
                 msg.linear.x=0.0
                 self.get_logger().info(f'Close to object .. ')
-
+            self.movement=False
 
         elif phrase=='forward' or phrase=='front':
             
@@ -108,13 +107,17 @@ class Texttomove(Node):
            
             print('rightward called ')
             if self.deg_240>=self.min_dist_left and self.deg_300>=self.min_dist_left:     
-                msg.angular.z=0.5
+                msg.angular.z=-0.5
                 msg.linear.x=0.0
-                self.movement=True
+                self.pub_vel.publish(msg) 
+                self.get_clock().sleep_for(rclpy.duration.Duration(seconds=self.sleep_sec))
+                msg.angular.z=0.0
+                self.pub_vel.publish(msg) 
             else:
                 msg.angular.z=0.0
                 msg.linear.x=0.0
                 self.get_logger().info(f'Close to object .. Collision can occured ') 
+            self.movement=False
         elif phrase=='stop':
             print('stop')
             

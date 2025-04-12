@@ -136,11 +136,11 @@ client = Groq(api_key=api_key)
 # client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 speech_to_command_dict = {
-    "forward": '''ros2 service call /text_move custom_service/srv/Text "{text: forward}"''',
-    "back": '''ros2 service call /text_move custom_service/srv/Text "{text: back}"''',
-    "left": '''ros2 service call /text_move custom_service/srv/Text "{text: left}"''',
-    "right": '''ros2 service call /text_move custom_service/srv/Text "{text: right}"''',
-    "stop": '''ros2 service call /text_move custom_service/srv/Text "{text: stop}"''',
+    "forward": '''ros2 service call /text_move custom_service/srv/Text "{input: forward}"''',
+    "back": '''ros2 service call /text_move custom_service/srv/Text "{input: back}"''',
+    "left": '''ros2 service call /text_move custom_service/srv/Text "{input: left}"''',
+    "right": '''ros2 service call /text_move custom_service/srv/Text "{input: right}"''',
+    "stop": '''ros2 service call /text_move custom_service/srv/Text "{input: stop}"''',
 }
 
 def clean_text(text):
@@ -149,7 +149,7 @@ def clean_text(text):
     """
     return text.lower().strip().replace('.', '').replace(',', '')
 
-def record_audio(duration=5, sample_rate=16000, output_file="/tmp/input_audio.wav"):
+def record_audio(duration=2, sample_rate=16000, output_file="/tmp/input_audio.wav"):
     """
     Records audio from the microphone for a given duration.
     """
