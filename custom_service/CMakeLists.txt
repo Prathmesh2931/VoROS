@@ -33,6 +33,7 @@ install(
   DIRECTORY
     srv
     src
+    launch
   DESTINATION
     share/${PROJECT_NAME}/
 )
