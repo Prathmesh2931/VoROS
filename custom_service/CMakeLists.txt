@@ -43,6 +43,7 @@ install(PROGRAMS
   src/angle_tune.py
   src/speech_to_text.py
   src/speech_to_command.py
+  src/yaw.py
   DESTINATION lib/${PROJECT_NAME}
 )
 ament_package()

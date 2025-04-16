@@ -10,18 +10,26 @@ from geometry_msgs.msg import Twist
 from rclpy.executors import MultiThreadedExecutor
 from sensor_msgs.msg import LaserScan
 import math
-
+from std_msgs.msg import Float32
 
 class Texttomove(Node):
     def __init__(self):
         super().__init__('move')
         self.callback_group=ReentrantCallbackGroup()
         self.serv=self.create_service(Text,'/text_move',self.text_mv,callback_group=self.callback_group)
+        self.yaw=self.create_subscription(Float32,'/orient',self.call_yaw,10)
         self.scan=self.create_subscription(LaserScan,'/scan',self.get_data,10)
         self.pub_vel=self.create_publisher(Twist,'/cmd_vel',10)
         self.cmd_rev=False
         self.movement=False
- 
+        self.orient=None
+        self.allign=False
+    
+
+    def call_yaw(self,msg:Float32): 
+        self.orient=msg.data
+
+
     def give_range(self,degree,msg:LaserScan):
         rad=math.radians(degree)
         
@@ -57,7 +65,10 @@ class Texttomove(Node):
             return
         
         phrase=self.word
+        print(f'see:  {phrase}')
         self.min_dist_left=0.5
+        self.Kp=1.8
+        self.thresh=0.05
         self.sleep_sec=3.0
         msg=Twist()
         if phrase=='left':
@@ -75,7 +86,7 @@ class Texttomove(Node):
             else:
                 msg.angular.z=0.0
                 msg.linear.x=0.0
-                self.get_logger().info(f'Close to object .. ')
+                # self.get_logger().info(f'Close to object .. ')
             self.movement=False
 
         elif phrase=='forward' or phrase=='front':
@@ -88,7 +99,7 @@ class Texttomove(Node):
             else:
                 msg.angular.z=0.0
                 msg.linear.x=0.0
-                self.get_logger().info(f'Close to object .. Collision can occured ')
+                # self.get_logger().info(f'Close to object .. Collision can occured ')
 
         elif phrase=='backward' or phrase=='back':
             print('backward called ')
@@ -100,7 +111,7 @@ class Texttomove(Node):
                 msg.angular.z=0.0
                 msg.linear.x=0.0
 
-            self.get_logger().info(f'Close to object .. Collision can occured ')
+            # self.get_logger().info(f'Close to object .. Collision can occured ')
     
 
         elif phrase=='right' :
@@ -116,7 +127,7 @@ class Texttomove(Node):
             else:
                 msg.angular.z=0.0
                 msg.linear.x=0.0
-                self.get_logger().info(f'Close to object .. Collision can occured ') 
+                # self.get_logger().info(f'Close to object .. Collision can occured ') 
             self.movement=False
         elif phrase=='stop':
             print('stop')
@@ -124,6 +135,30 @@ class Texttomove(Node):
             msg.angular.z=0.0
             msg.linear.x=0.0
             self.movement=True 
+
+        elif phrase.startswith("turn_left_"):
+            deg = int(phrase.split("_")[-1])
+            radian=self.deg_to_radian(deg)
+            print(f'Radian :{radian}..........')
+            if not self.allign :
+                vel=self.allign_to_deg(radian,self.Kp,self.thresh)
+                msg.angular.z=vel
+                msg.linear.x=0.0
+                self.pub_vel.publish(msg) 
+            # msg.linear.x=0.0
+            self.movement=True
+
+        elif phrase.startswith("turn_right_"):
+            deg = int(phrase.split("_")[-1])
+            radian=self.deg_to_radian(-deg)
+            print(f'Radian :{radian}..........')
+            if not self.allign :
+                vel=self.allign_to_deg(radian,self.Kp,self.thresh)
+                msg.angular.z=-vel
+                msg.linear.x=0.0
+                self.pub_vel.publish(msg) 
+            # msg.linear.x=0.0
+            self.movement=True
         else:
             
             msg.angular.z=0.0
@@ -133,11 +168,26 @@ class Texttomove(Node):
         self.pub_vel.publish(msg) 
 
 
+    def deg_to_radian(self,deg):
+        return math.radians(deg)
+
+    def allign_to_deg(self,ori,Kp,thresh):
+        error=ori-self.orient
+        error = math.atan2(math.sin(error), math.cos(error))  # Wraps around properly
+
+        if abs(error)>=thresh:
+            value=error*Kp
+        else:
+            value=0.0
+            self.allign=True
+        
+        return value
+    
 
     def text_mv(self,Request,Response):
         self.word=Request.input
         self.movement=True
-        
+        self.allign=False
         rate=self.create_rate(10,self.get_clock())
         while not self.movement:
             # self.get_logger().info(f'Still moving to target ')

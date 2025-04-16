@@ -125,6 +125,7 @@ import subprocess
 from threading import Thread
 from dotenv import load_dotenv
 from groq import Groq
+import re
 
 load_dotenv()
 # api_key = os.environ.get("GROQ_API_KEY")
@@ -141,6 +142,9 @@ speech_to_command_dict = {
     "left": '''ros2 service call /text_move custom_service/srv/Text "{input: left}"''',
     "right": '''ros2 service call /text_move custom_service/srv/Text "{input: right}"''',
     "stop": '''ros2 service call /text_move custom_service/srv/Text "{input: stop}"''',
+    # Dynamic commands with degrees
+    "turn_left_degrees": '''ros2 service call /text_move custom_service/srv/Text "{{input: turn_left_{deg}}}"''',
+    "turn_right_degrees": '''ros2 service call /text_move custom_service/srv/Text "{{input: turn_right_{deg}}}"''',
 }
 
 def clean_text(text):
@@ -149,7 +153,7 @@ def clean_text(text):
     """
     return text.lower().strip().replace('.', '').replace(',', '')
 
-def record_audio(duration=2, sample_rate=16000, output_file="/tmp/input_audio.wav"):
+def record_audio(duration=3, sample_rate=16000, output_file="/tmp/input_audio.wav"):
     """
     Records audio from the microphone for a given duration.
     """
@@ -172,36 +176,75 @@ def transcribe_audio(file_path):
         )
     return transcription.text
 
+# def parse_command(command):
+#     """
+#     Maps a spoken command to the corresponding ROS2 command using sentiment analysis and intent understanding.
+#     """
+#     chat_completion = client.chat.completions.create(
+#         messages=[
+#             {
+#                 "role": "system",
+#                 "content": f"""You are a sentiment and intent analyzer for ROS2 commands. Your job is to understand 
+#                 the sentiment and context of spoken commands and map them to the appropriate ROS2 command. 
+                
+#                 Use the following dictionary for mapping intents to commands:
+#                 {speech_to_command_dict}
+                
+#                 If the spoken command implies intent or sentiment for a specific action (e.g., 'lift up , takeoff' implies 'redeye takeoff'),
+#                 match it to the corresponding key in the dictionary. If no match is possible, return 'INVALID'. 
+#                 DO NOT PRINT ANYTHING EXCEPT THE KEY."""
+#             },
+#             {
+#                 "role": "user",
+#                 "content": f"Determine the command intent for: '{command}'"
+#             }
+#         ],
+#         model="llama3-8b-8192",
+#     )
+
+#     parsed = chat_completion.choices[0].message.content.strip().strip("'").strip('"')
+#     # print(f"LLM parsed result: {parsed}") 
+
+#     return speech_to_command_dict.get(parsed, None)
+
+import re
+
 def parse_command(command):
     """
-    Maps a spoken command to the corresponding ROS2 command using sentiment analysis and intent understanding.
+    Uses the LLM to detect direction and optionally angle,
+    returns full ROS2 command string or None if invalid.
     """
+    # Check for degrees manually (for more control)
+    match = re.search(r'(left|right).*?(\d+)\s*(degree|degrees)?', command)
+    if match:
+        direction = match.group(1)
+        degree = match.group(2)
+        key = f"turn_{direction}_degrees"
+        return speech_to_command_dict[key].format(deg=degree)
+
+    # If no angle, fall back to LLM for standard direction matching
     chat_completion = client.chat.completions.create(
         messages=[
             {
                 "role": "system",
-                "content": f"""You are a sentiment and intent analyzer for ROS2 commands. Your job is to understand 
-                the sentiment and context of spoken commands and map them to the appropriate ROS2 command. 
-                
-                Use the following dictionary for mapping intents to commands:
-                {speech_to_command_dict}
-                
-                If the spoken command implies intent or sentiment for a specific action (e.g., 'lift up , takeoff' implies 'redeye takeoff'),
-                match it to the corresponding key in the dictionary. If no match is possible, return 'INVALID'. 
-                DO NOT PRINT ANYTHING EXCEPT THE KEY."""
+                "content": f"""You are a command parser for ROS2. Match the spoken command to a key in this dictionary:
+                {list(speech_to_command_dict.keys())}.
+                Return only the key, or 'INVALID' if it doesn't match."""
             },
             {
                 "role": "user",
-                "content": f"Determine the command intent for: '{command}'"
+                "content": f"{command}"
             }
         ],
         model="llama3-8b-8192",
     )
 
-    parsed = chat_completion.choices[0].message.content.strip().strip("'").strip('"')
-    # print(f"LLM parsed result: {parsed}") 
+    parsed_key = chat_completion.choices[0].message.content.strip().strip('"').strip("'")
 
-    return speech_to_command_dict.get(parsed, None)
+    if parsed_key in speech_to_command_dict:
+        return speech_to_command_dict[parsed_key]
+    return None
+
 
 def execute_command(command):
     """
