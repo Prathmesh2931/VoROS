@@ -150,11 +150,23 @@ class Texttomove(Node):
 
         elif phrase.startswith("turn_right_"):
             deg = int(phrase.split("_")[-1])
-            radian=self.deg_to_radian(-deg)
+            radian=self.deg_to_radian(360-deg)
             print(f'Radian :{radian}..........')
             if not self.allign :
                 vel=self.allign_to_deg(radian,self.Kp,self.thresh)
                 msg.angular.z=-vel
+                msg.linear.x=0.0
+                self.pub_vel.publish(msg) 
+            # msg.linear.x=0.0
+            self.movement=True
+
+        elif phrase.startswith("turn_"):
+            deg = int(phrase.split("_")[-1])
+            radian=self.deg_to_radian(deg)
+            print(f'Radian :{radian}..........')
+            if not self.allign :
+                vel=self.allign_to_deg(radian,self.Kp,self.thresh)
+                msg.angular.z=vel
                 msg.linear.x=0.0
                 self.pub_vel.publish(msg) 
             # msg.linear.x=0.0

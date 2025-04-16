@@ -19,10 +19,10 @@ class orien_to_yaw(Node):
         # self.get_logger().info(f"yaw: {yaw}")
         
         self.yaw.data=yaw-1.57
-        self.get_logger().info(f"yaw: {yaw}")
-        # if self.yaw.data<0.0:
-        #     self.yaw.data+=6.24
-
+        # self.get_logger().info(f"yaw: {yaw}")
+        if self.yaw.data<0.0:
+            self.yaw.data+=6.24
+        self.get_logger().info(f"yaw: {self.yaw.data}")
         self.orient.publish(self.yaw)
 
 

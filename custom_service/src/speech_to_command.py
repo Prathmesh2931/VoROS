@@ -143,8 +143,10 @@ speech_to_command_dict = {
     "right": '''ros2 service call /text_move custom_service/srv/Text "{input: right}"''',
     "stop": '''ros2 service call /text_move custom_service/srv/Text "{input: stop}"''',
     # Dynamic commands with degrees
-    "turn_left_degrees": '''ros2 service call /text_move custom_service/srv/Text "{{input: turn_left_{deg}}}"''',
-    "turn_right_degrees": '''ros2 service call /text_move custom_service/srv/Text "{{input: turn_right_{deg}}}"''',
+    # "turn_left_degrees": '''ros2 service call /text_move custom_service/srv/Text "{{input: turn_left_{deg}}}"''',
+    # "turn_right_degrees": '''ros2 service call /text_move custom_service/srv/Text "{{input: turn_right_{deg}}}"''',
+    "turn_degrees": '''ros2 service call /text_move custom_service/srv/Text "{{input: turn_{deg}}}"''',
+
 }
 
 def clean_text(text):
@@ -208,21 +210,17 @@ def transcribe_audio(file_path):
 #     return speech_to_command_dict.get(parsed, None)
 
 import re
-
 def parse_command(command):
     """
-    Uses the LLM to detect direction and optionally angle,
-    returns full ROS2 command string or None if invalid.
+    Parses input like 'turn 90 degrees', 'turn 180', etc.
+    Returns the full ROS2 service command string or None.
     """
-    # Check for degrees manually (for more control)
-    match = re.search(r'(left|right).*?(\d+)\s*(degree|degrees)?', command)
+    match = re.search(r'\bturn\s+(?:left|right)?\s*(\d{1,3})\s*(?:degrees|degree)?', command, re.IGNORECASE)
     if match:
-        direction = match.group(1)
-        degree = match.group(2)
-        key = f"turn_{direction}_degrees"
-        return speech_to_command_dict[key].format(deg=degree)
+        degree = match.group(1)
+        return speech_to_command_dict["turn_degrees"].format(deg=degree)
 
-    # If no angle, fall back to LLM for standard direction matching
+    # Fallback to basic direction command
     chat_completion = client.chat.completions.create(
         messages=[
             {
@@ -240,10 +238,26 @@ def parse_command(command):
     )
 
     parsed_key = chat_completion.choices[0].message.content.strip().strip('"').strip("'")
-
     if parsed_key in speech_to_command_dict:
         return speech_to_command_dict[parsed_key]
+
     return None
+
+
+import re
+
+# def parse_command(command):
+#     """
+#     Parses input like 'turn 90 degrees', 'turn left 180', etc.
+#     Returns just 'turn_{degree}' (e.g., 'turn_90').
+#     """
+#     match = re.search(r'\bturn\s+(?:left|right)?\s*(\d{1,3})\s*(?:degrees|degree)?', command, re.IGNORECASE)
+#     if match:
+#         degree = match.group(1)
+#         return f"turn_{degree}"
+
+#     return None
+
 
 
 def execute_command(command):
